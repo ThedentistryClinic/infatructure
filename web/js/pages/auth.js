@@ -10,10 +10,9 @@ const boolSetting = (k) => setting(k, false) === true;
 function layout(inner) {
   return `<div class="login-wrap">
     <section class="login-side">
-      <div class="brand" style="padding:0">${setting('company.logo_url') ? `<img src="${esc(setting('company.logo_url'))}" alt="">` : `<span class="brand-mark">${esc(appName().slice(0, 1))}</span>`}
-        <span class="brand-name">${esc(appName())}</span></div>
+      <div class="login-logo">${setting('company.logo_url') ? `<span class="brand-plate"><img src="${esc(setting('company.logo_url'))}" alt="${esc(appName())}"></span>` : `<img src="assets/logo-white.png" alt="">`}<span class="login-company">${esc(appName())}</span></div>
       <div>
-        <h1>ทุกอย่างที่ต้องใช้ในการทำงาน รวมไว้ที่เดียว</h1>
+        <h1>ทุกอย่างที่ทีมงานต้องใช้ รวมไว้ที่เดียว</h1>
         <p>ข่าวประกาศ เอกสารบริษัท และทางเข้าระบบงานทั้งหมด เห็นเฉพาะสิ่งที่คุณได้รับสิทธิ์</p>
         <ul>
           <li>${icon('news')} ข่าวสารและประกาศสำคัญของบริษัท</li>
@@ -23,7 +22,7 @@ function layout(inner) {
       </div>
       <small style="color:#8EA0BF">หากมีปัญหาการเข้าใช้งาน กรุณาติดต่อฝ่าย IT</small>
     </section>
-    <section class="login-form">${inner}</section>
+    <section class="login-form"><img class="login-form-logo" src="${esc(setting('company.logo_url') || 'assets/logo.png')}" alt="${esc(appName())}">${inner}</section>
   </div>`;
 }
 
