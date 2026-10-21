@@ -9,12 +9,13 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const mode = process.argv[2] || process.env.APP_ENV || 'development';
 const file = resolve(root, `.env.${mode}`);
-if (!existsSync(file)) {
-  console.error(`Missing ${file}. Copy .env.${mode}.example and fill it in.`);
+const env = {};
+if (!existsSync(file) && !process.env.SUPABASE_URL) {
+  console.error(`Missing ${file} (or SUPABASE_URL / SUPABASE_ANON_KEY environment variables).`);
   process.exit(1);
 }
-const env = {};
-for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+// Hosting platforms (Netlify, Vercel, Cloudflare Pages) provide values as environment variables
+for (const line of existsSync(file) ? readFileSync(file, 'utf8').split(/\r?\n/) : []) {
   const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
   if (m && !line.trim().startsWith('#')) env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
 }
