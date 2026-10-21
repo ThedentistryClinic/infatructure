@@ -79,6 +79,22 @@ export async function signedUrl(bucket, path, downloadName = null) {
   return data.signedUrl;
 }
 
+/** Inline news images are stored as <img data-path="<news_id>/img-…">. */
+export function newsImagePaths(html) {
+  return Array.from(String(html || '').matchAll(/data-path="([^"]+)"/g), (m) => m[1]);
+}
+/** Give inline news images short-lived signed URLs (only works if the reader may view the news). */
+export async function hydrateNewsImages(root) {
+  const imgs = root ? Array.from(root.querySelectorAll('img[data-path]')) : [];
+  if (!imgs.length) return;
+  const ttl = Math.max(600, Number(setting('storage.signed_url_ttl_seconds', 120)) || 0);
+  const paths = [...new Set(imgs.map((i) => i.dataset.path))];
+  const { data, error } = await supabase.storage.from('news').createSignedUrls(paths, ttl);
+  if (error) { console.warn(error); return; }
+  const map = Object.fromEntries((data || []).filter((d) => d.signedUrl).map((d) => [d.path, d.signedUrl]));
+  imgs.forEach((i) => { if (map[i.dataset.path]) i.src = map[i.dataset.path]; else i.alt = 'ไม่สามารถแสดงรูปภาพ'; });
+}
+
 export function triggerDownload(url) {
   const a = document.createElement('a');
   a.href = url; a.rel = 'noopener';

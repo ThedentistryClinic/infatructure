@@ -56,8 +56,9 @@ function mountShell() {
   document.getElementById('app').innerHTML = `
   <div class="shell">
     <aside class="sidebar" aria-label="เมนูหลัก">
-      <div class="brand">${logo ? `<img src="${esc(logo)}" alt="">` : `<span class="brand-mark">${esc(appName().slice(0, 1))}</span>`}
-        <span class="brand-name">${esc(appName())}</span></div>
+      <a class="brand" href="#/" aria-label="${esc(appName())} หน้าแรก">
+        ${logo ? `<span class="brand-plate"><img src="${esc(logo)}" alt=""></span>` : '<img class="brand-logo" src="assets/logo-white.png" alt="">'}
+        <span class="brand-name">${esc(appName())}</span></a>
       <nav class="nav">
         ${nav.map(([k, h, ic]) => `<a href="${h}" data-nav="${k}">${icon(ic)}<span>${esc(t('nav.' + k))}</span></a>`).join('')}
         ${isAdminArea() ? `<div class="nav-sep"></div><a href="#/admin" data-nav="admin">${icon('shield')}<span>${esc(t('nav.admin'))}</span></a>` : ''}
