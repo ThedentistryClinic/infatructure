@@ -1,11 +1,12 @@
 // Company News & Announcements: list, detail (read tracking), editor, admin tab.
 import { supabase } from '../supabase.js';
 import {
-  must, can, me, setting, getDepartments, nameMaps, signedUrl, triggerDownload, logEvent,
+  must, can, me, setting, getDepartments, nameMaps, signedUrl, triggerDownload, logEvent, hydrateNewsImages, newsImagePaths,
   getFavoriteIds, setFavorite, NEWS_CATEGORY, NEWS_PRIORITY, PRINCIPAL_LABEL,
 } from '../api.js';
 import { principalPicker, principalColumns, principalId } from '../components.js';
 import { icon } from '../icons.js';
+import { createEditor } from '../editor.js';
 import {
   esc, $, modal, confirmDialog, toast, toastError, withLoading, loadingState, emptyState, errorState, sanitizeHtml,
   fmtDate, fmtDateTime, fmtRelative, fmtSize, fileExt, fileIcon, safeKey, opts, formData, pager, likePattern, debounce,
@@ -136,6 +137,7 @@ export async function renderDetail(view, { id }, _q, { setTitle }) {
           <button class="btn btn-sm" data-att="${esc(a.id)}">${icon('download')} ดาวน์โหลด</button></li>`).join('')}</ul></section>` : ''}
     </article>`;
 
+  hydrateNewsImages($('.article-body', view));
   if (n.cover_image_path) {
     signedUrl('news', n.cover_image_path).then((u) => { $('[data-cover]', view).innerHTML = `<img class="news-cover" src="${esc(u)}" alt="">`; }).catch(() => {});
   }
@@ -172,7 +174,7 @@ export async function renderDetail(view, { id }, _q, { setTitle }) {
 
 async function deleteNews(n, attachments = null) {
   const atts = attachments || must(await supabase.from('news_attachments').select('file_path').eq('news_id', n.id));
-  const paths = [...atts.map((a) => a.file_path), n.cover_image_path].filter(Boolean);
+  const paths = [...atts.map((a) => a.file_path), n.cover_image_path, ...newsImagePaths(n.content_html)].filter(Boolean);
   if (paths.length) await supabase.storage.from('news').remove(paths);   // best effort
   const rows = must(await supabase.from('news').delete().eq('id', n.id).select('id'));
   if (!rows.length) throw new Error('คุณไม่มีสิทธิ์ลบข่าวนี้');
@@ -195,6 +197,7 @@ async function showHistory(n) {
     m.body.innerHTML = rows.length ? `<ul class="list">${rows.map((r) => `<li><details><summary><b>ฉบับที่ ${r.revision_no}</b> · ${esc(r.title)} <span class="muted">— บันทึกก่อนการแก้ไขโดย ${esc(r.profiles?.full_name || '-')} ${esc(fmtDateTime(r.changed_at))}</span></summary>
       <div class="article-body" style="margin-top:10px;font-size:14px;border-left:3px solid var(--line);padding-left:12px">${sanitizeHtml(r.content_html)}</div></details></li>`).join('')}</ul>`
       : emptyState('ยังไม่มีการแก้ไข', '', '', 'history', true);
+    m.body.querySelectorAll('.article-body').forEach((el) => hydrateNewsImages(el));
   } catch (e) { m.body.innerHTML = errorState(e, false); }
 }
 
@@ -267,18 +270,32 @@ export async function renderEditor(view, { id }, _q, { setTitle }) {
       </aside>
     </form>`;
 
-  // Rich text editor (Quill). Output is sanitised on save and again on render.
-  let quill = null;
-  if (window.Quill) {
-    quill = new window.Quill('#n-editor', {
-      theme: 'snow', placeholder: 'พิมพ์รายละเอียดข่าว…',
-      modules: { toolbar: [[{ header: [2, 3, false] }], ['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], ['link', 'blockquote'], ['clean']] },
-    });
-    quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(n.content_html || ''));
-  } else {
-    $('#n-editor', view).innerHTML = `<textarea class="input" id="n-plain" style="min-height:240px">${esc(n.content_html || '')}</textarea>`;
+  // Rich text editor with inline images. Images live in the private `news`
+  // bucket; the saved HTML keeps only data-path, signed URLs are added on view.
+  const editor = createEditor($('#n-editor', view), { html: n.content_html || '', placeholder: 'พิมพ์รายละเอียดข่าว…' });
+  hydrateNewsImages(editor.root);
+  const oldImagePaths = newsImagePaths(n.content_html);
+
+  async function prepareContent(newsId) {
+    const box = document.createElement('div');
+    box.innerHTML = editor.getHtml();
+    let i = 0;
+    for (const img of Array.from(box.querySelectorAll('img'))) {
+      const src = img.getAttribute('src') || '';
+      if (img.dataset.path) { img.removeAttribute('src'); continue; }
+      let file = editor.pending.get(src);
+      if (!file && src.startsWith('data:image/')) file = await (await fetch(src)).blob();
+      if (!file) { img.remove(); continue; }                       // external images are not allowed
+      const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+      const path = `${newsId}/img-${Date.now()}-${i++}.${ext}`;
+      const up = await supabase.storage.from('news').upload(path, file, { contentType: file.type || 'image/png', upsert: false });
+      if (up.error) throw up.error;
+      img.removeAttribute('src');
+      img.setAttribute('data-path', path);
+      img.setAttribute('alt', img.getAttribute('alt') || '');
+    }
+    return sanitizeHtml(box.innerHTML);
   }
-  const getHtml = () => sanitizeHtml(quill ? quill.root.innerHTML : $('#n-plain', view).value);
 
   const form = $('[data-f]', view);
   const tlist = $('[data-tlist]', view);
@@ -308,7 +325,7 @@ export async function renderEditor(view, { id }, _q, { setTitle }) {
     const f = formData(form);
     if (!f.title) { toast('กรุณาระบุหัวข้อข่าว', 'error'); $('#n-title', view).focus(); return; }
     const row = {
-      title: f.title, summary: f.summary || null, content_html: getHtml(), category: f.category, priority: f.priority,
+      title: f.title, summary: f.summary || null, category: f.category, priority: f.priority,
       track_reads: f.track_reads, audience: f.audience, status,
       publish_at: fromLocalInput(f.publish_at), expire_at: fromLocalInput(f.expire_at),
       event_start_at: fromLocalInput(f.event_start_at), event_end_at: fromLocalInput(f.event_end_at), event_location: f.event_location || null,
@@ -329,8 +346,17 @@ export async function renderEditor(view, { id }, _q, { setTitle }) {
     await withLoading(btn, async () => {
       try {
         let newsId = id;
-        if (id) must(await supabase.from('news').update(row).eq('id', id));
-        else newsId = must(await supabase.from('news').insert(row).select('id').single()).id;
+        if (id) {
+          row.content_html = await prepareContent(id);
+          must(await supabase.from('news').update(row).eq('id', id));
+        } else {
+          // insert first: inline images are stored under the news id
+          newsId = must(await supabase.from('news').insert({ ...row, content_html: '' }).select('id').single()).id;
+          row.content_html = await prepareContent(newsId);
+          must(await supabase.from('news').update({ content_html: row.content_html }).eq('id', newsId));
+        }
+        const removedImages = oldImagePaths.filter((p) => !newsImagePaths(row.content_html).includes(p));
+        if (removedImages.length) await supabase.storage.from('news').remove(removedImages);
 
         // Targets: replace the whole set
         if (id) must(await supabase.from('news_targets').delete().eq('news_id', newsId));
@@ -397,7 +423,7 @@ export async function renderAdmin(el) {
         const del = e.target.closest('[data-del]'); if (!del) return;
         const n = data.find((x) => x.id === del.closest('[data-id]').dataset.id);
         if (!await confirmDialog({ title: 'ลบข่าว', message: `ลบ "${n.title}"?`, confirmText: 'ลบข่าว', danger: true })) return;
-        try { const full = must(await supabase.from('news').select('id, cover_image_path').eq('id', n.id).single()); await deleteNews(full); toast('ลบข่าวแล้ว', 'success'); load(); } catch (err) { toastError(err); }
+        try { const full = must(await supabase.from('news').select('id, cover_image_path, content_html').eq('id', n.id).single()); await deleteNews(full); toast('ลบข่าวแล้ว', 'success'); load(); } catch (err) { toastError(err); }
       };
     } catch (e) { listEl.innerHTML = errorState(e); $('[data-retry]', listEl)?.addEventListener('click', load); }
   }

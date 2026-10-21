@@ -15,6 +15,7 @@ export async function render(view, _p, _q, { setTitle }) {
   const greet = hour < 12 ? 'สวัสดีตอนเช้า' : hour < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
   view.innerHTML = `
     <section class="welcome">
+      <img class="welcome-mark" src="assets/mark-white.png" alt="" aria-hidden="true">
       <div class="date-block" aria-label="วันนี้">
         <div class="d">${now.getDate()}</div>
         <div class="m">${esc(now.toLocaleDateString('th-TH', { weekday: 'long' }))}<br>${esc(now.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }))}</div>
