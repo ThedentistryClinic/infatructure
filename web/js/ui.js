@@ -38,6 +38,7 @@ export function errMsg(err) {
     const f = /([\w-]+\.js)/.exec(m);
     return `โหลดไฟล์ของหน้าเว็บไม่สำเร็จ${f ? ` (${f[1]})` : ''} — ไฟล์อาจยังไม่ได้อัปโหลดหรืออยู่ผิดโฟลเดอร์ ลองกด Ctrl+F5`;
   }
+  if (/Failed to send a request to the Edge Function/i.test(m)) return 'เรียกใช้ Edge Function "admin-users" ไม่ได้ — ตรวจว่า deploy ชื่อ admin-users แล้ว และตั้ง Secret ALLOWED_ORIGINS / APP_BASE_URL ถูกต้อง';
   if (/Failed to fetch|NetworkError|network/i.test(m)) return 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง';
   if (/JWT expired|invalid JWT|session/i.test(m)) return 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
   if (/mime type|not supported/i.test(m)) return 'ไม่รองรับประเภทไฟล์นี้';
