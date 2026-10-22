@@ -41,6 +41,59 @@ function lifecycle(n) {
   return ['เผยแพร่อยู่', 'chip-ok'];
 }
 
+// ---------------------------------------------------------------- news cards
+/** Thumbnail = cover image, else the first inline image of the article. */
+function thumbPath(n) { return n.cover_image_path || newsImagePaths(n.content_html)[0] || null; }
+
+/** Read status of the current user + read counters for a batch of news. */
+export async function loadNewsMeta(rows) {
+  const ids = rows.map((n) => n.id);
+  if (!ids.length) return { readSet: new Set(), countMap: {} };
+  const [reads, counts] = await Promise.all([
+    supabase.from('news_reads').select('news_id').eq('user_id', me().id).in('news_id', ids).then(must),
+    supabase.rpc('news_read_count', { p_news_ids: ids }).then(must),
+  ]);
+  return { readSet: new Set(reads.map((r) => r.news_id)), countMap: Object.fromEntries(counts.map((c) => [c.news_id, Number(c.read_count)])) };
+}
+
+export const NEWS_CARD_COLUMNS = 'id, title, summary, category, priority, is_pinned, publish_at, track_reads, cover_image_path, content_html';
+
+/** Card list: thumbnail left, title, date, readers, "อ่านข่าว" button. */
+export function newsCards(rows, { readSet = new Set(), countMap = {}, compact = false } = {}) {
+  return `<div class="news-cards ${compact ? 'compact' : ''}">${rows.map((n) => {
+    const unread = n.track_reads && !readSet.has(n.id);
+    const path = thumbPath(n);
+    return `<article class="news-card">
+      <a class="news-thumb" href="#/news/${esc(n.id)}" tabindex="-1" aria-hidden="true">
+        ${path ? `<img data-thumb="${esc(path)}" alt="" loading="lazy">` : '<img class="news-thumb-mark" src="assets/mark-white.png" alt="">'}
+      </a>
+      <div class="news-card-body">
+        <div class="news-card-badges">${unread ? '<span class="unread-dot" title="ยังไม่อ่าน"></span>' : ''}${newsBadges(n)}</div>
+        <h3 class="news-card-title"><a href="#/news/${esc(n.id)}">${esc(n.title)}</a></h3>
+        ${!compact && n.summary ? `<p class="news-card-summary">${esc(n.summary)}</p>` : ''}
+        <div class="news-card-meta">
+          <span>${icon('calendar')} ${esc(fmtDate(n.publish_at, { day: '2-digit', month: '2-digit', year: 'numeric' }))}</span>
+          ${n.track_reads ? `<span title="จำนวนผู้อ่าน">${icon('eye')} ${countMap[n.id] || 0}</span>` : ''}
+        </div>
+        <a class="btn btn-sm btn-read" href="#/news/${esc(n.id)}">${icon('book')} อ่านข่าว</a>
+      </div>
+    </article>`;
+  }).join('')}</div>`;
+}
+
+/** Fill thumbnails with short-lived signed URLs (one request per batch). */
+export async function hydrateNewsThumbs(root) {
+  const imgs = Array.from(root.querySelectorAll('img[data-thumb]'));
+  if (!imgs.length) return;
+  const paths = [...new Set(imgs.map((i) => i.dataset.thumb))];
+  const { data } = await supabase.storage.from('news').createSignedUrls(paths, 3600);
+  const map = Object.fromEntries((data || []).filter((d) => d.signedUrl).map((d) => [d.path, d.signedUrl]));
+  imgs.forEach((i) => {
+    if (map[i.dataset.thumb]) i.src = map[i.dataset.thumb];
+    else { i.removeAttribute('data-thumb'); i.className = 'news-thumb-mark'; i.src = 'assets/mark-white.png'; }
+  });
+}
+
 // ================================================================ list
 export async function render(view, _p, query, { setTitle }) {
   setTitle('ข่าวสาร');
@@ -53,14 +106,14 @@ export async function render(view, _p, query, { setTitle }) {
       <select class="select" data-cat aria-label="ประเภทข่าว">${opts(Object.entries(NEWS_CATEGORY).map(([id, name]) => ({ id, name })), st.category, { empty: 'ทุกประเภท' })}</select>
       <label class="check"><input type="checkbox" data-archive> รวมข่าวที่สิ้นสุดการแสดงผลแล้ว</label>
     </div>
-    <div class="panel" data-list>${loadingState(6)}</div>`;
+    <div data-list>${loadingState(6)}</div>`;
   const listEl = $('[data-list]', view);
 
   async function load() {
     listEl.innerHTML = loadingState(6);
     try {
       const nowIso = new Date().toISOString();
-      let q = supabase.from('news').select('id, title, summary, category, priority, is_pinned, publish_at, expire_at, track_reads, created_by, author:profiles!news_created_by_fkey(full_name)', { count: 'exact' })
+      let q = supabase.from('news').select(NEWS_CARD_COLUMNS, { count: 'exact' })
         .eq('status', 'published').lte('publish_at', nowIso);
       if (!st.archive) q = q.or(`expire_at.is.null,expire_at.gt.${nowIso}`);
       if (st.category) q = q.eq('category', st.category);
@@ -68,20 +121,10 @@ export async function render(view, _p, query, { setTitle }) {
       const { data, count } = must(await q.order('is_pinned', { ascending: false }).order('publish_at', { ascending: false })
         .range((st.page - 1) * PAGE, st.page * PAGE - 1));
       if (!data.length) { listEl.innerHTML = emptyState(st.q || st.category ? 'ไม่พบข่าวที่ค้นหา' : 'ยังไม่มีข่าวสาร', '', '', 'news'); return; }
-      const ids = data.map((n) => n.id);
-      const [reads, counts] = await Promise.all([
-        supabase.from('news_reads').select('news_id').eq('user_id', me().id).in('news_id', ids).then(must),
-        supabase.rpc('news_read_count', { p_news_ids: ids }).then(must),
-      ]);
-      const readSet = new Set(reads.map((r) => r.news_id));
-      const countMap = Object.fromEntries(counts.map((c) => [c.news_id, c.read_count]));
-      listEl.innerHTML = `<ul class="list">${data.map((n) => `<li><a class="row-link" href="#/news/${esc(n.id)}">
-        <span class="${n.track_reads && !readSet.has(n.id) ? 'unread-dot' : 'read-dot'}" title="${readSet.has(n.id) ? 'อ่านแล้ว' : 'ยังไม่อ่าน'}"></span>
-        <span style="flex:1;min-width:0"><span style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">${newsBadges(n)}</span>
-          <span class="row-title" style="font-size:16px">${esc(n.title)}</span>
-          ${n.summary ? `<span class="cell-sub" style="display:block;margin-top:2px">${esc(n.summary)}</span>` : ''}
-          <span class="cell-sub" style="display:block;margin-top:4px">${esc(n.author?.full_name || 'ผู้ดูแลระบบ')} · ${esc(fmtDate(n.publish_at))}${n.track_reads ? ` · อ่านแล้ว ${countMap[n.id] || 0} คน` : ''}</span></span></a></li>`).join('')}</ul>
-        ${pager(st.page, PAGE, count || 0)}`;
+      const meta = await loadNewsMeta(data);
+      listEl.innerHTML = `${newsCards(data, meta)}
+        <div class="panel" style="margin-top:14px">${pager(st.page, PAGE, count || 0)}</div>`;
+      hydrateNewsThumbs(listEl);
     } catch (e) { listEl.innerHTML = errorState(e); $('[data-retry]', listEl)?.addEventListener('click', load); }
   }
   listEl.addEventListener('click', (e) => { const b = e.target.closest('[data-page]'); if (b) { st.page = Number(b.dataset.page); load(); } });

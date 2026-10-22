@@ -5,7 +5,7 @@ import { state, must, can, me } from '../api.js';
 import { icon } from '../icons.js';
 import { esc, $, fmtDate, fmtRelative, fileIcon, emptyState, errorState, loadingState } from '../ui.js';
 import { openApplication, appIcon } from './applications.js';
-import { newsBadges } from './news.js';
+import { newsCards, loadNewsMeta, hydrateNewsThumbs, NEWS_CARD_COLUMNS } from './news.js';
 
 export async function render(view, _p, _q, { setTitle }) {
   setTitle('หน้าแรก');
@@ -30,7 +30,7 @@ export async function render(view, _p, _q, { setTitle }) {
       <div class="dash-col">
         <section class="panel"><div class="panel-head"><h2>เข้าระบบด่วน</h2><a href="#/applications" class="btn btn-sm btn-ghost">ระบบทั้งหมด</a></div>
           <div class="panel-body" data-quick>${loadingState(2)}</div></section>
-        <section class="panel"><div class="panel-head"><h2>ประกาศและข่าวสาร</h2><a href="#/news" class="btn btn-sm btn-ghost">ดูทั้งหมด</a></div>
+        <section class="panel"><div class="panel-head"><h2>ข่าวสารประชาสัมพันธ์</h2><a href="#/news" class="btn btn-sm btn-ghost">ดูทั้งหมด</a></div>
           <div class="panel-body flush" data-news>${loadingState(4)}</div></section>
         <section class="panel"><div class="panel-head"><h2>เอกสารที่เพิ่มล่าสุด</h2><a href="#/documents?view=recent" class="btn btn-sm btn-ghost">ดูทั้งหมด</a></div>
           <div class="panel-body flush" data-docs>${loadingState(4)}</div></section>
@@ -72,20 +72,13 @@ export async function render(view, _p, _q, { setTitle }) {
 
     // Announcements: pinned first, then latest; excludes expired
     section('[data-news]', async (el) => {
-      const rows = must(await supabase.from('news')
-        .select('id, title, summary, category, priority, is_pinned, publish_at, created_at, track_reads')
+      const rows = must(await supabase.from('news').select(NEWS_CARD_COLUMNS)
         .eq('status', 'published').lte('publish_at', nowIso)
         .or(`expire_at.is.null,expire_at.gt.${nowIso}`)
-        .order('is_pinned', { ascending: false }).order('publish_at', { ascending: false }).limit(6));
+        .order('is_pinned', { ascending: false }).order('publish_at', { ascending: false }).limit(4));
       if (!rows.length) { el.innerHTML = emptyState('ยังไม่มีประกาศ', '', '', 'news', true); return; }
-      const reads = new Set(must(await supabase.from('news_reads').select('news_id').eq('user_id', p.id)
-        .in('news_id', rows.map((r) => r.id))).map((r) => r.news_id));
-      el.innerHTML = `<ul class="list">${rows.map((n) => `<li><a class="row-link" href="#/news/${esc(n.id)}">
-          <span class="${n.track_reads && !reads.has(n.id) ? 'unread-dot' : 'read-dot'}" title="${reads.has(n.id) ? 'อ่านแล้ว' : 'ยังไม่อ่าน'}"></span>
-          <span style="flex:1;min-width:0"><span class="badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px">${newsBadges(n)}</span>
-          <span class="row-title">${esc(n.title)}</span>
-          ${n.summary ? `<span class="cell-sub" style="display:block">${esc(n.summary)}</span>` : ''}</span>
-          <span class="cell-sub" style="white-space:nowrap">${esc(fmtRelative(n.publish_at))}</span></a></li>`).join('')}</ul>`;
+      el.innerHTML = newsCards(rows, { ...(await loadNewsMeta(rows)), compact: true });
+      hydrateNewsThumbs(el);
     }),
 
     // Recently added documents (only those the user may view)
