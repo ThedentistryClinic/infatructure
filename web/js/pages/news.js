@@ -65,7 +65,7 @@ export function newsCards(rows, { readSet = new Set(), countMap = {}, compact = 
     const path = thumbPath(n);
     return `<article class="news-card">
       <a class="news-thumb" href="#/news/${esc(n.id)}" tabindex="-1" aria-hidden="true">
-        ${path ? `<img data-thumb="${esc(path)}" alt="" loading="lazy">` : '<img class="news-thumb-mark" src="assets/mark-white.png" alt="">'}
+        ${path ? `<img data-thumb="${esc(path)}" alt="" loading="lazy" width="240" height="180">` : '<img class="news-thumb-mark" src="assets/mark-white.png" alt="" width="150" height="65">'}
       </a>
       <div class="news-card-body">
         <div class="news-card-badges">${unread ? '<span class="unread-dot" title="ยังไม่อ่าน"></span>' : ''}${newsBadges(n)}</div>
