@@ -34,6 +34,10 @@ export function errMsg(err) {
   if (/Email not confirmed/i.test(m)) return 'ยังไม่ได้ยืนยันอีเมล กรุณาตรวจสอบกล่องจดหมาย';
   if (/User is banned/i.test(m)) return 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
   if (/row-level security|permission denied|42501/i.test(m) || err.code === '42501') return 'คุณไม่มีสิทธิ์ทำรายการนี้';
+  if (/dynamically imported module|Importing a module script failed|error loading dynamically/i.test(m)) {
+    const f = /([\w-]+\.js)/.exec(m);
+    return `โหลดไฟล์ของหน้าเว็บไม่สำเร็จ${f ? ` (${f[1]})` : ''} — ไฟล์อาจยังไม่ได้อัปโหลดหรืออยู่ผิดโฟลเดอร์ ลองกด Ctrl+F5`;
+  }
   if (/Failed to fetch|NetworkError|network/i.test(m)) return 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง';
   if (/JWT expired|invalid JWT|session/i.test(m)) return 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
   if (/mime type|not supported/i.test(m)) return 'ไม่รองรับประเภทไฟล์นี้';
