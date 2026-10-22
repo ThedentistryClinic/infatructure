@@ -5,7 +5,7 @@ import { store } from './ui.js';
 const dict = {
   th: {
     'nav.dashboard': 'หน้าแรก', 'nav.documents': 'เอกสาร', 'nav.applications': 'ระบบงาน',
-    'nav.news': 'ข่าวสาร', 'nav.favorites': 'รายการโปรด', 'nav.admin': 'จัดการระบบ',
+    'nav.news': 'ข่าวสาร', 'nav.activities': 'กิจกรรม', 'nav.favorites': 'รายการโปรด', 'nav.admin': 'จัดการระบบ',
     'nav.profile': 'โปรไฟล์ของฉัน', 'nav.logout': 'ออกจากระบบ',
     'search.placeholder': 'ค้นหาเอกสาร ข่าวสาร หรือระบบงาน',
     'common.save': 'บันทึก', 'common.cancel': 'ยกเลิก', 'common.delete': 'ลบ', 'common.edit': 'แก้ไข',
@@ -13,7 +13,7 @@ const dict = {
   },
   en: {
     'nav.dashboard': 'Dashboard', 'nav.documents': 'Documents', 'nav.applications': 'Applications',
-    'nav.news': 'News', 'nav.favorites': 'Favorites', 'nav.admin': 'Admin Panel',
+    'nav.news': 'News', 'nav.activities': 'Activities', 'nav.favorites': 'Favorites', 'nav.admin': 'Admin Panel',
     'nav.profile': 'My profile', 'nav.logout': 'Log out',
     'search.placeholder': 'Search documents, news or systems',
     'common.save': 'Save', 'common.cancel': 'Cancel', 'common.delete': 'Delete', 'common.edit': 'Edit',

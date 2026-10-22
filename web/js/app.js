@@ -18,6 +18,10 @@ const routes = [
   { path: '/news/new', page: () => import('./pages/news.js'), fn: 'renderEditor', nav: 'news' },
   { path: '/news/:id', page: () => import('./pages/news.js'), fn: 'renderDetail', nav: 'news' },
   { path: '/news/:id/edit', page: () => import('./pages/news.js'), fn: 'renderEditor', nav: 'news' },
+  { path: '/activities', page: () => import('./pages/activities.js'), nav: 'activities' },
+  { path: '/activities/new', page: () => import('./pages/activities.js'), fn: 'renderEditor', nav: 'activities' },
+  { path: '/activities/:id', page: () => import('./pages/activities.js'), fn: 'renderDetail', nav: 'activities' },
+  { path: '/activities/:id/edit', page: () => import('./pages/activities.js'), fn: 'renderEditor', nav: 'activities' },
   { path: '/favorites', page: () => import('./pages/favorites.js'), nav: 'favorites' },
   { path: '/search', page: () => import('./pages/search.js'), nav: null },
   { path: '/profile', page: () => import('./pages/profile.js'), nav: null },
@@ -51,7 +55,7 @@ function mountShell() {
   const logo = setting('company.logo_url', '');
   const nav = [
     ['dashboard', '#/', 'dashboard'], ['documents', '#/documents', 'files'], ['applications', '#/applications', 'grid'],
-    ['news', '#/news', 'news'], ['favorites', '#/favorites', 'star'],
+    ['news', '#/news', 'news'], ['activities', '#/activities', 'image'], ['favorites', '#/favorites', 'star'],
   ];
   document.getElementById('app').innerHTML = `
   <div class="shell">
