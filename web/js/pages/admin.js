@@ -483,6 +483,7 @@ async function storage(el) {
     el.innerHTML = `<div class="card-grid" style="margin-bottom:22px">
         ${tile('เอกสาร (bucket documents)', fmtSize(by.documents?.total_bytes || 0), `${Number(by.documents?.object_count || 0).toLocaleString('th-TH')} ไฟล์ รวมทุกเวอร์ชัน`)}
         ${tile('ข่าวสาร (bucket news)', fmtSize(by.news?.total_bytes || 0), `${Number(by.news?.object_count || 0).toLocaleString('th-TH')} ไฟล์`)}
+        ${tile('กิจกรรม (bucket activities)', fmtSize(by.activities?.total_bytes || 0), `${Number(by.activities?.object_count || 0).toLocaleString('th-TH')} ไฟล์ (รูปเต็ม + รูปย่อ)`)}
         ${tile('เอกสารในถังขยะ', (trash.count || 0).toLocaleString('th-TH'), 'กู้คืนหรือลบถาวรได้จากหน้าเอกสาร')}
       </div>
       <section class="panel"><div class="panel-head"><h2>เอกสารที่มีไฟล์ขนาดใหญ่ที่สุด</h2></div>

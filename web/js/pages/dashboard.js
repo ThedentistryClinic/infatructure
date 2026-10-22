@@ -5,6 +5,7 @@ import { state, must, can, me } from '../api.js';
 import { icon } from '../icons.js';
 import { esc, $, fmtDate, fmtRelative, fileIcon, emptyState, errorState, loadingState } from '../ui.js';
 import { openApplication, appIcon } from './applications.js';
+import { activityCards, latestActivities, signActivityImages } from './activities.js';
 import { newsCards, loadNewsMeta, hydrateNewsThumbs, NEWS_CARD_COLUMNS } from './news.js';
 
 export async function render(view, _p, _q, { setTitle }) {
@@ -38,6 +39,8 @@ export async function render(view, _p, _q, { setTitle }) {
       <div class="dash-col">
         <section class="panel" data-approvals-panel hidden><div class="panel-head"><h2>รออนุมัติ</h2></div>
           <div class="panel-body flush" data-approvals></div></section>
+        <section class="panel"><div class="panel-head"><h2>Activity</h2><a href="#/activities" class="btn btn-sm btn-ghost">ดูทั้งหมด</a></div>
+          <div class="panel-body" data-activities>${loadingState(2)}</div></section>
         <section class="panel"><div class="panel-head"><h2>ระบบที่ใช้บ่อย</h2></div>
           <div class="panel-body flush" data-frequent>${loadingState(3)}</div></section>
         <section class="panel"><div class="panel-head"><h2>กิจกรรมและวันสำคัญ</h2></div>
@@ -79,6 +82,14 @@ export async function render(view, _p, _q, { setTitle }) {
       if (!rows.length) { el.innerHTML = emptyState('ยังไม่มีประกาศ', '', '', 'news', true); return; }
       el.innerHTML = newsCards(rows, { ...(await loadNewsMeta(rows)), compact: true });
       hydrateNewsThumbs(el);
+    }),
+
+    // Latest activity albums
+    section('[data-activities]', async (el) => {
+      const rows = await latestActivities(4);
+      if (!rows.length) { el.innerHTML = emptyState('ยังไม่มีกิจกรรม', '', can('activities.manage') ? `<a class="btn btn-sm" href="#/activities/new">สร้างอัลบั้ม</a>` : '', 'image', true); return; }
+      el.innerHTML = activityCards(rows, { compact: true });
+      signActivityImages(el);
     }),
 
     // Recently added documents (only those the user may view)
